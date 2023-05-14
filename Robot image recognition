@@ -1,0 +1,92 @@
+%Start of Loop
+j = 1;
+
+while j<2;  
+    % Imports videoGlycerol_11Hz
+    file_number = j;
+    file_path = sprintf("Final data video files\\Water_%dHz.MOV",file_number);
+    video = VideoReader(file_path);
+    
+    %names usefule variables for coordinates
+    X_coordinates_list_dot = [];
+    Y_coordinates_list_dot = [];
+    X_coordinates_list_leg = [];
+    Y_coordinates_list_leg = [];
+    Frame_number = [];
+    %Used to keep track of iteration
+    Number_of_Frames = video.NumFrames;
+   
+    
+    for i = 1: 1:1300;
+        % Read the image into MATLAB
+        I = read(video, i);
+        imshow(I);
+        bw = imbinarize(I);
+
+        [nl, nc, ~] = size (I); % get the number of rows and columns 
+        centerRow = nl / 2 ; % get the center row 
+        centerCol = nc / 2+70; % get the center colmn
+        
+        h_leg = drawellipse('Center',[centerCol centerRow],'SemiAxes',[240 240],'RotationAngle',287,'StripeColor','m');
+        h_dot = drawellipse('Center',[centerCol centerRow],'SemiAxes',[130 130],'RotationAngle',287,'StripeColor','m');
+        
+        mask_leg = createMask(h_leg);
+        mask_dot = createMask(h_dot);
+        %imshow(mask_leg);
+        %imshow(mask_dot);
+        
+        I2_leg = mask_leg - bw;
+        I3_leg = rgb2gray(I2_leg);
+        
+        I2_dot = mask_dot - bw;
+        I3_dot = rgb2gray(I2_dot);
+        
+        Image_light_leg = (I3_leg > 0.6) - (I3_leg >0.95);
+        Image_light_leg = bwareaopen(Image_light_leg,100);
+        Image_light_dot = (I3_dot > 0.6) - (I3_dot >0.95);
+        
+        cc_leg = bwconncomp(Image_light_leg);
+        cc_dot = bwconncomp(Image_light_dot);
+        
+        
+        % Get the region properties of each connected component
+        props_leg = regionprops(cc_leg, 'Area', 'Centroid');
+        props_dot = regionprops(cc_dot, 'Area', 'Centroid');
+        
+        % Sort the connected components by area in descending order
+        
+        
+
+        if cc_leg.NumObjects >= 1 && cc_dot.NumObjects>= 1;
+    
+            [~, idx] = sort([props_leg.Area], 'descend');
+            largestObj_leg = props_leg(idx(1)).Centroid;
+            x_leg = largestObj_leg(:,1) - centerCol;
+            y_leg = largestObj_leg(:,2) - centerRow;
+
+            [~, idx] = sort([props_dot.Area], 'descend');
+            largestObj_dot = props_dot(idx(1)).Centroid;
+
+            x_dot = largestObj_dot(:,1) - centerCol;
+            y_dot = largestObj_dot(:,2) - centerRow;
+    
+  
+            X_coordinates_list_dot = [X_coordinates_list_dot,x_dot];
+            Y_coordinates_list_dot = [Y_coordinates_list_dot,y_dot];
+            X_coordinates_list_leg = [X_coordinates_list_leg,x_leg];
+            Y_coordinates_list_leg = [Y_coordinates_list_leg,y_leg];
+    
+            Frame_number = [Frame_number,i];
+    
+        end
+    
+    
+    end
+    headers = {'Frame count', 'X - leg', 'Y - leg', 'X - dot', 'Y - dot'};%Headers of variables in list
+    data = [Frame_number; X_coordinates_list_leg; Y_coordinates_list_leg; X_coordinates_list_dot; Y_coordinates_list_dot]';%Adds variables into an array and it transposes it.
+    tableData = array2table(data, 'VariableNames', headers);% turns array into a table
+    file_name = sprintf('Water_At_%dHz_Final.csv',j);%name of csv
+    writetable(tableData, file_name);%writes CSV
+    clearvars -except j 
+    j = j + 1;
+end
